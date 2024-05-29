@@ -28,21 +28,24 @@ class Preprocessor:
             try:
                 data = pd.read_csv(file_path, sep = "\t")
                 if 'text_en' in data.columns:
-                    data['preprocessed_text'] = data['text_en'].apply(self.pipeline)
+                    #data['preprocessed_text'] = data['text_en'].apply(self.pipeline)
                     data_list.append(data[['text_en', 'label']].rename(columns={'text_en': 'text'}))
                 else:
-                    data['preprocessed_text'] = data['text'].apply(self.pipeline)
+                    #data['preprocessed_text'] = data['text'].apply(self.pipeline)
                     data_list.append(data[['text', 'label']])
 
-                processed_data_list.append(data[['preprocessed_text','label']].rename(columns={'preprocessed_text': 'text'}))
+                #processed_data_list.append(data[['preprocessed_text','label']].rename(columns={'preprocessed_text': 'text'}))
             except Exception as e:
                 print(f"Error processing {file_name}: {e}")
             
-        processed_data = pd.concat(processed_data_list, ignore_index=True)
-        processed_data.to_csv(os.path.join(output_dir, f'{subtask}_lemmatized_data.tsv'), sep="\t", index=False)
+            out_path = os.path.join(output_dir, 'out', file_name)
+            data_list[-1].to_csv(out_path, index=False, sep='\t')
+            
+        #processed_data = pd.concat(processed_data_list, ignore_index=True)
+        #processed_data.to_csv(os.path.join(output_dir, f'{subtask}_lemmatized_data.tsv'), sep="\t", index=False)
 
-        unprocessed_data = pd.concat(data_list, ignore_index=True)  
-        unprocessed_data.to_csv(os.path.join(output_dir, f'{subtask}_data.tsv'))
+        #unprocessed_data = pd.concat(data_list, ignore_index=True)  
+        #unprocessed_data.to_csv(os.path.join(output_dir, f'{subtask}_data.tsv'))
 
 if __name__=='__main__':
     proc = Preprocessor()
