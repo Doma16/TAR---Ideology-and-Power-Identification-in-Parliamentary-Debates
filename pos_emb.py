@@ -5,15 +5,15 @@ import math
 
 class PositionalEmbedding(nn.Module):
 
-   def __init__(self, length=6, emb=300, *args, **kwargs):
+   def __init__(self, length=6, emb=300, device='cpu',*args, **kwargs):
       super().__init__(*args, **kwargs)
       self.emb = emb
       self.length = length
-
+      self.device = device
       self.register_buffer('pos_emb', self._make_pos_emb())
 
    def _make_pos_emb(self):
-      pos_emb = torch.zeros(self.length, self.emb)
+      pos_emb = torch.zeros(self.length, self.emb).to(self.device)
       
       position = torch.arange(0, self.length).unsqueeze(1) 
       div_term = torch.exp(torch.arange(0, self.emb, 2) * (-math.log(10_000) / self.emb))

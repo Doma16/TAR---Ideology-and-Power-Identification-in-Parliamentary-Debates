@@ -11,20 +11,22 @@ class RTransformer(nn.Module):
                num_layers=4,
                k=6,
                stride=4,
+               r=10,
+               device='cpu',
                **kwargs):
       super(RTransformer, self).__init__(*args, **kwargs)
-      self.encoder = TransformerEncoder(emb_dim, nhead, num_layers, k, dropout=0.1)
+      self.encoder = TransformerEncoder(emb_dim, nhead, num_layers, k, dropout=0.1, device=device)
       self.reset_parameters()
 
       self.emb_dim = emb_dim
       self.nhead = nhead
-
+      self.device = device
       self.stride = stride
       self.k = k
 
-      self.pad_vec = nn.Parameter(torch.randn(emb_dim))
-      self.left_vec = nn.Parameter(torch.randn(emb_dim,1))
-      self.right_vec = nn.Parameter(torch.randn(emb_dim,1))
+      #self.pad_vec = nn.Parameter(torch.randn(emb_dim), requires_grad=True).to(device)
+      self.left_vec = -r * nn.Parameter(torch.randn(emb_dim), requires_grad=True).to(device)
+      self.right_vec = r * nn.Parameter(torch.randn(emb_dim), requires_grad=True).to(device)
 
    def reset_parameters(self):
       for p in self.parameters():
@@ -36,23 +38,51 @@ class RTransformer(nn.Module):
       b, l, emb = x.shape
       k, s = self.k, self.stride
       
-      nl = math.ceil((l-k)/s)
-      l_ = nl * s + k
+      nl = math.ceil(l/s)
+      l_ = (nl-1) * s + k
       
-      t = torch.zeros(size=(b, l_, emb))
+      t = torch.zeros(size=(b, l_, emb)).to(self.device)
 
       t[:, :l, :] = x
-      t[:, l:, :] = torch.tile(self.pad_vec, dims=(l_-l, 1))
-      while nl >= 1:
-         c = torch.zeros(size=(b, nl, emb))
+      #t[:, l:, :] = torch.tile(self.pad_vec, dims=(l_-l, 1))
+      while l > 1:
+         c = torch.zeros(size=(b, nl, emb)).to(self.device)
          for i in range(nl):
             c[:, i, :] = self.encoder(t[:, i*s:i*s+k, :], pos).reshape(-1, emb)
-         t = c
          l = c.shape[1]
-         nl = math.ceil((l-k)/s)
-         l_ = nl * s + k
+         nl = math.ceil(l/s)
+         l_ = (nl-1) * s + k
 
-      return t
+         t = torch.zeros(size=(b, l_, emb)).to(self.device)
+         t[:, :l, :] = c
+
+      return c
+
+   def get_loss(self, x, pos, label):
+      out = self.forward(x, pos)
+      
+      maskl = label == 0
+      maskr = label == 1
+
+      out[maskl] -= self.left_vec
+      out[maskr] -= self.right_vec
+
+      out **= 2
+      out = torch.sum(out, dim=(1,2))
+      return torch.mean(out)
+
+   def predict(self, x, pos):
+      out = self.forward(x, pos)
+
+      leftD = torch.sum((out - self.left_vec)**2, dim=(1,2))
+      rightD = torch.sum((out - self.right_vec)**2, dim=(1,2))
+
+      diff = leftD - rightD
+      
+      diff[diff >= 0] = 1
+      diff[diff < 0] = 0
+      return diff
+      
 
 class TransformerEncoder(nn.Module):
 
@@ -63,10 +93,11 @@ class TransformerEncoder(nn.Module):
                 k,
                 *args,
                 dropout=0.1,
+                device='cpu',
                 **kwargs):
       super(TransformerEncoder, self).__init__(*args, **kwargs)
-      self.layers = nn.ModuleList(TELayer(emb_dim, nhead, dropout=dropout) for _ in range(num_layers))
-      self.linear = nn.Linear(k, 1)
+      self.layers = nn.ModuleList(TELayer(emb_dim, nhead, dropout=dropout) for _ in range(num_layers)).to(device)
+      self.linear = nn.Linear(k, 1).to(device)
       self.num_layers = num_layers
 
    def forward(self, x, pos):
@@ -140,3 +171,9 @@ if __name__ == '__main__':
 
    xp = model.forward(X, pos)
    assert xp.shape == (50, 1, 300)
+
+   label = torch.zeros(50, 1)
+   label[1] += 1
+
+   model.get_loss(X, pos, label)
+   model.predict(X, pos)
