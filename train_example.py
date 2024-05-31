@@ -1,20 +1,28 @@
-from sklearn.metrics import f1_score, precision_recall_fscore_support
+from sklearn.metrics import f1_score, precision_recall_fscore_support, accuracy_score
 from sklearn.linear_model import SGDClassifier
 import numpy as np
 
 
-def calculate_f1(model, data):
-    y_true = []
-    y_pred = []
+def calculate_metrics(model, data):
+
+    acc = []
+    prec = []
+    rec = []
+    f1 = []
     for embeddings, labels in data:
         embeddings_2d = embeddings.reshape(embeddings.shape[0], -1)
         batch_pred = model.predict(embeddings_2d)
-        y_true.extend(labels.reshape(-1))
-        y_pred.extend(batch_pred)
-    
-    #f1 = f1_score(y_true, y_pred, average='binary')
-    prec, recall, fscore, supp = precision_recall_fscore_support(y_true, y_pred, average='binary')
-    return prec, recall, fscore, supp
+        
+        y_true = labels.reshape(-1)
+        y_pred = batch_pred
+        accuracy = accuracy_score(y_true, y_pred)
+        precision, recall, fscore, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=1.0)
+        acc.append(accuracy)
+        prec.append(precision)
+        rec.append(recall)
+        f1.append(fscore)
+
+    return prec, rec, f1, acc
 
 def train_model(data):
     model = SGDClassifier(loss='log_loss', max_iter=1000, tol=1e-3)
@@ -35,7 +43,12 @@ if __name__ == '__main__':
     trained_model= train_model(data)
     
     data2 = DataLoader(parlament='at', set='valid', batch_size=32, padding=True)
-    prec, recall, f1, _ = calculate_f1(trained_model, data2)
-    print(f'precision: {prec:.2f} recall: {recall:.2f} f1score: {f1:.2f}')
+    prec, rec, f1, acc = calculate_metrics(trained_model, data2)
+
+    print(f'Avg. accuracy on validation is {sum(acc)/len(acc):.2f}')
+    print(f'Avg. precision on validation is {sum(prec)/len(prec):.2f}')
+    print(f'Avg. recall on validation is {sum(rec)/len(rec):.2f}')
+    print(f'Avg. f1 on validation is {sum(f1)/len(f1):.2f}')
+
     end = time.time()
     print(f'Time: {(end-start):.3f}s')

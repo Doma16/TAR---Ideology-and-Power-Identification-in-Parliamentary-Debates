@@ -11,11 +11,19 @@ class RTransformer(nn.Module):
                num_layers=4,
                k=6,
                stride=4,
-               r=10,
                device='cpu',
                **kwargs):
       super(RTransformer, self).__init__(*args, **kwargs)
-      self.encoder = TransformerEncoder(emb_dim, nhead, num_layers, k, dropout=0.1, device=device)
+      self.encoder = TransformerEncoder(emb_dim, nhead, num_layers, k, dropout=0, device=device)
+      '''
+      self.encoder = nn.Sequential(
+         nn.Linear(in_features=k*emb_dim, out_features=emb_dim),
+         nn.ReLU(),
+         nn.Linear(emb_dim, emb_dim),
+         nn.ReLU(),
+         nn.Linear(emb_dim, emb_dim)
+      )
+      '''
       self.reset_parameters()
 
       self.emb_dim = emb_dim
@@ -25,8 +33,10 @@ class RTransformer(nn.Module):
       self.k = k
 
       #self.pad_vec = nn.Parameter(torch.randn(emb_dim), requires_grad=True).to(device)
-      self.left_vec = -r * nn.Parameter(torch.randn(emb_dim), requires_grad=True).to(device)
-      self.right_vec = r * nn.Parameter(torch.randn(emb_dim), requires_grad=True).to(device)
+      self.left_vec = nn.Parameter(-torch.ones(emb_dim), requires_grad=True).to(device)
+      self.right_vec = nn.Parameter(torch.ones(emb_dim), requires_grad=True).to(device)
+
+      self.classify = nn.Linear(emb_dim, 1)
 
    def reset_parameters(self):
       for p in self.parameters():
@@ -48,7 +58,7 @@ class RTransformer(nn.Module):
       while l > 1:
          c = torch.zeros(size=(b, nl, emb)).to(self.device)
          for i in range(nl):
-            c[:, i, :] = self.encoder(t[:, i*s:i*s+k, :], pos).reshape(-1, emb)
+            c[:, i, :] = self.encoder(t[:, i*s:i*s+k, :], pos).reshape(-1, emb) #.flatten(1,2))#
          l = c.shape[1]
          nl = math.ceil(l/s)
          l_ = (nl-1) * s + k
@@ -56,11 +66,17 @@ class RTransformer(nn.Module):
          t = torch.zeros(size=(b, l_, emb)).to(self.device)
          t[:, :l, :] = c
 
-      return c
+      out = self.classify(c)
+      return out
 
-   def get_loss(self, x, pos, label):
+   def get_loss(self, x, pos, label, criterion=nn.BCEWithLogitsLoss):
       out = self.forward(x, pos)
       
+      sigmoid = 1 / (1 + torch.exp(-out)).flatten(1)
+
+      criterion()
+      breakpoint()
+      '''
       maskl = label == 0
       maskr = label == 1
 
@@ -69,7 +85,15 @@ class RTransformer(nn.Module):
 
       out **= 2
       out = torch.sum(out, dim=(1,2))
+      '''
       return torch.mean(out)
+   
+   def bce_predict(self, x, pos):
+      with torch.no_grad():
+         out = self.forward(x, pos)
+         out = 1 / (1+torch.exp(-out))
+         out = torch.round(out)
+      return out.flatten(1)
 
    def predict(self, x, pos):
       out = self.forward(x, pos)
@@ -83,7 +107,11 @@ class RTransformer(nn.Module):
       diff[diff < 0] = 0
       return diff
       
-
+   def count_parameters(self):
+      params = 0
+      for param in self.parameters():
+         params += param.numel()
+      return params
 class TransformerEncoder(nn.Module):
 
    def __init__(self,
