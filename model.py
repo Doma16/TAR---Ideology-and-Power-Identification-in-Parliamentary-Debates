@@ -43,7 +43,7 @@ class RTransformer(nn.Module):
          if p.dim() > 1:
             nn.init.xavier_normal_(p)
 
-   def forward(self, x, pos):
+   def forward(self, x, pos=None):
       # x.shape cca. N x l x 300
       b, l, emb = x.shape
       k, s = self.k, self.stride

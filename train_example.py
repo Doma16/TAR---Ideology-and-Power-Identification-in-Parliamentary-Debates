@@ -30,7 +30,7 @@ def train_model(data):
     for embeddings, labels in data:
         embeddings_2d = embeddings.reshape(embeddings.shape[0], -1)
         labels_1d = labels.reshape(-1)
-        model.partial_fit(embeddings_2d, labels_1d, classes=np.unique(labels_1d))
+        model.partial_fit(embeddings_2d, labels_1d, classes=(0, 1))
 
     return model
 
@@ -39,10 +39,13 @@ if __name__ == '__main__':
     from data_loader import DataLoader
     import time 
     start = time.time()
-    data = DataLoader(parlament='at', batch_size=32, padding=True)
+
+    parlament = 'at'
+
+    data = DataLoader(parlament=parlament, batch_size=32, padding=True)
     trained_model= train_model(data)
     
-    data2 = DataLoader(parlament='at', set='valid', batch_size=32, padding=True)
+    data2 = DataLoader(parlament=parlament, set='valid', batch_size=32, padding=True)
     prec, rec, f1, acc = calculate_metrics(trained_model, data2)
 
     print(f'Avg. accuracy on validation is {sum(acc)/len(acc):.2f}')

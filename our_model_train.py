@@ -11,7 +11,9 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from model import RTransformer
 from pos_emb import PositionalEmbedding
 
-parlament = 'ba'
+from torch.utils.tensorboard import SummaryWriter
+
+parlament = 'at'
 
 ds_train = ParlaDataset(parlament=parlament, set='train')
 ds_valid = ParlaDataset(parlament=parlament, set='valid')
@@ -19,8 +21,8 @@ ds_valid = ParlaDataset(parlament=parlament, set='valid')
 shuffle = True
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 batch_size = 16
-lr = 9e-5
-epoch = 10
+lr = 1e-4
+epoch = 5
 
 emb_dim = 300
 nhead = 2
@@ -38,6 +40,7 @@ model = RTransformer(emb_dim=emb_dim,
 model = model.to(device)
 pos = PositionalEmbedding(length=k, emb=emb_dim, device=device)
 pos = pos.to(device)
+pos = None # we dont use positional here xD
 
 print(f'Model consists of {model.count_parameters()} parameters')
 
@@ -47,10 +50,12 @@ validloader = DataLoader(dataset=ds_valid, batch_size=batch_size, shuffle=shuffl
 optim = torch.optim.Adam(model.parameters(), lr=lr)
 criterion = nn.BCEWithLogitsLoss()
 
+writer = SummaryWriter(log_dir=f'runs/our_par_{parlament}')
+
 for epo in range(epoch):
 
    pbar = tqdm(trainloader)
-   for text, label in pbar:
+   for itern, (text, label) in enumerate(pbar):
       model.train()
       model.zero_grad()
 
@@ -63,6 +68,7 @@ for epo in range(epoch):
       loss.backward(retain_graph=True)
       optim.step()
       pbar.set_description(f'Epoch {epo} Loss: {loss.item()}')
+      writer.add_scalar('Loss', loss.item(), epo*len(trainloader) + itern)
 
    acc = []
    prec = []
@@ -92,3 +98,15 @@ for epo in range(epoch):
    print(f'Avg. recall on validation is {sum(rec)/len(rec):.2f}')
    print(f'Avg. f1 on validation is {sum(f1)/len(f1):.2f}')
 
+#saving model
+#NOTE you can overwrite existing model if you rerun script
+
+state = {'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optim.state_dict()}
+torch.save(state, f'runs/our_model.pth')
+
+# should get this results on test set !!!
+with open(f'runs/our_par_{parlament}_results', 'w') as f:
+   f.write(f'Avg. accuracy on validation is {sum(acc)/len(acc):.2f}\n')
+   f.write(f'Avg. precision on validation is {sum(prec)/len(prec):.2f}\n')
+   f.write(f'Avg. recall on validation is {sum(rec)/len(rec):.2f}\n')
+   f.write(f'Avg. f1 on validation is {sum(f1)/len(f1):.2f}\n')
