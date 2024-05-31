@@ -13,7 +13,7 @@ from pos_emb import PositionalEmbedding
 
 from torch.utils.tensorboard import SummaryWriter
 
-parlament = 'at'
+parlament = 'ee'
 preprocess = True
 
 ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
@@ -107,7 +107,7 @@ for epo in range(epoch):
 #NOTE you can overwrite existing model if you rerun script
 
 state = {'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optim.state_dict()}
-torch.save(state, f'runs/{name}_model.pth')
+torch.save(state, f'runs/{name}_model_{parlament}.pth')
 
 # should get this results on test set !!!
 with open(f'runs/{name}_par_{parlament}_results', 'w') as f:

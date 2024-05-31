@@ -27,7 +27,7 @@ class ourRNN(nn.Module):
    def forward(self, x, h):
       out, hidden = self.rnn1(x, h)
 
-      y = self.act(self.fc1(out[:, -1, :]))
+      y = self.act(self.fc1(out[:, out.shape[1]//2, :]))
       y = self.fc2(y)
       return y
        
@@ -44,10 +44,11 @@ class ourRNN(nn.Module):
          out = torch.round(out)
       return out
 
-parlament = 'at'
+parlament = 'cz'
+preprocess = True
 
-ds_train = ParlaDataset(parlament=parlament, set='train')
-ds_valid = ParlaDataset(parlament=parlament, set='valid')
+ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
+ds_valid = ParlaDataset(parlament=parlament, set='valid', preprocess=preprocess)
 
 shuffle = True
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -65,6 +66,8 @@ model = ourRNN(device=device, input_size=emb_dim, hidden_dim=hidden_dim, num_lay
 model = model.to(device)
 
 name = 'ourrnn'
+if preprocess:
+   name = 'preprocess'+name
 
 print(f'Model consists of {model.count_parameters()} parameters')
 
