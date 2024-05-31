@@ -8,44 +8,63 @@ from dataset import ParlaDataset, pad_collate_fn
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
-from model import RTransformer
-from pos_emb import PositionalEmbedding
-
 from torch.utils.tensorboard import SummaryWriter
 
-parlament = 'at'
-preprocess = True
+class ourRNN(nn.Module):
+   def __init__(self, *args, 
+                device='cpu',
+                input_size=300,
+                hidden_dim=300,
+                num_layers=2,
+                **kwargs):
+      super().__init__(*args, **kwargs)
+      self.rnn1 = nn.RNN(batch_first=True, device=device, input_size=input_size, hidden_size=hidden_dim, num_layers=num_layers, bidirectional=True)
+      
+      self.act = nn.ReLU()
+      self.fc1 = nn.Linear(hidden_dim*2, hidden_dim)
+      self.fc2 = nn.Linear(hidden_dim, 1)
 
-ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
-ds_valid = ParlaDataset(parlament=parlament, set='valid', preprocess=preprocess)
+   def forward(self, x, h):
+      out, hidden = self.rnn1(x, h)
+
+      y = self.act(self.fc1(out[:, -1, :]))
+      y = self.fc2(y)
+      return y
+       
+   def count_parameters(self):
+      params = 0
+      for param in self.parameters():
+         params += param.numel()
+      return params
+   
+   def predict(self, x, h):
+      with torch.no_grad():
+         out = self.forward(x, h)
+         out = 1 / (1+torch.exp(-out))
+         out = torch.round(out)
+      return out
+
+parlament = 'at'
+
+ds_train = ParlaDataset(parlament=parlament, set='train')
+ds_valid = ParlaDataset(parlament=parlament, set='valid')
 
 shuffle = True
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 batch_size = 16
-lr = 1e-4
-epoch = 5
+lr = 1e-5
+epoch = 10
 
 emb_dim = 300
-nhead = 2
-num_layers = 2
-k = 5
-stride = 5
-
-name = 'our'
-if preprocess:
-   name = 'preprocess'+name
+num_layers = 4
+hidden_dim = 600
+gradient_clip = 1
 
 # loading model and pos embedding
-model = RTransformer(emb_dim=emb_dim,
-                     nhead=nhead,
-                     num_layers=num_layers,
-                     k=k,
-                     stride=stride,
-                     device=device)
+model = ourRNN(device=device, input_size=emb_dim, hidden_dim=hidden_dim, num_layers=num_layers)
 model = model.to(device)
-pos = PositionalEmbedding(length=k, emb=emb_dim, device=device)
-pos = pos.to(device)
-pos = None # we dont use positional here xD
+
+name = 'ourrnn'
 
 print(f'Model consists of {model.count_parameters()} parameters')
 
@@ -67,10 +86,14 @@ for epo in range(epoch):
       text = text.to(device)
       label = label.to(device, torch.float32)
 
-      out = model.forward(text, pos)
+      n,l,emb = text.shape
+      h = torch.zeros(size=(num_layers*2, n, hidden_dim)).to(device)
+      #hs = (torch.zeros(size=(num_layers, n, hidden_dim)).to(device) for _ in range(2))
+      out = model.forward(text, h)
       
-      loss = criterion(out.flatten(1), label)
+      loss = criterion(out, label)
       loss.backward(retain_graph=True)
+      nn.utils.clip_grad_value_(model.parameters(), gradient_clip)
       optim.step()
       pbar.set_description(f'Epoch {epo} Loss: {loss.item()}')
       writer.add_scalar('Loss', loss.item(), epo*len(trainloader) + itern)
@@ -85,7 +108,10 @@ for epo in range(epoch):
       text = text.to(device)
       label = label.to(device)
 
-      y_ = model.bce_predict(text, pos)
+      n,l,emb = text.shape
+      h = torch.zeros(size=(num_layers*2, n, hidden_dim)).to(device)
+      #hs = (torch.zeros(size=(num_layers, n, hidden_dim)).to(device) for _ in range(2))
+      y_ = model.predict(text, h)
 
       Yt, Yp = label.cpu().detach().numpy(), y_.cpu().detach().numpy().reshape(-1, 1)
       Yt, Yp = Yt.flatten(), Yp.flatten()

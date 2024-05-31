@@ -42,10 +42,10 @@ if __name__ == '__main__':
 
     parlament = 'at'
 
-    data = DataLoader(parlament=parlament, batch_size=32, padding=True)
+    data = DataLoader(parlament=parlament, batch_size=32, padding=True, preprocess=True)
     trained_model= train_model(data)
     
-    data2 = DataLoader(parlament=parlament, set='valid', batch_size=32, padding=True)
+    data2 = DataLoader(parlament=parlament, set='valid', batch_size=32, padding=True, preprocess=True)
     prec, rec, f1, acc = calculate_metrics(trained_model, data2)
 
     print(f'Avg. accuracy on validation is {sum(acc)/len(acc):.2f}')

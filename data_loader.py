@@ -39,12 +39,17 @@ PARLAMENTS = {
 }
 
 class DataLoader:
-    def __init__(self, parlament='at', set='train', batch_size=1, shuffle=True, padding=False):
+    def __init__(self, parlament='at', set='train', batch_size=1, shuffle=True, padding=False, preprocess=False):
         set = set.lower()
         assert set in ['train', 'valid']
         self.set = set
 
-        self.file_path = os.path.join('data', 'out', PARLAMENTS[parlament])
+
+        data_file = PARLAMENTS[parlament]
+        if preprocess:
+            data_file='stopword'+data_file
+
+        self.file_path = os.path.join('data', 'out', data_file)
         self.parlament = parlament
         self.batch_size = batch_size
         self.shuffle = shuffle

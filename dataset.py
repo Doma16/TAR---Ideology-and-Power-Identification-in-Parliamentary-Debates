@@ -6,10 +6,10 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 
 class ParlaDataset(Dataset):
-   def __init__(self, parlament='at', set='train'):
+   def __init__(self, parlament='at', set='train', preprocess=False):
       super().__init__()
 
-      self.dl = DL(parlament=parlament, set=set, padding=False, batch_size=1, shuffle=False)
+      self.dl = DL(parlament=parlament, set=set, padding=False, batch_size=1, shuffle=False, preprocess=preprocess)
 
    def __len__(self):
       return len(self.dl)
