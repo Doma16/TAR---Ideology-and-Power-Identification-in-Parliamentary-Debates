@@ -24,8 +24,6 @@ class Preprocessor:
         data_list = []
 
         for file_name in tqdm(os.listdir(input_folder)):
-            if 'test' not in file_name:
-                continue
 
             file_path = os.path.join(input_folder, file_name)
             try:

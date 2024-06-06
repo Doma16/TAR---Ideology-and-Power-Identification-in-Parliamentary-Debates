@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 from tqdm import tqdm
+
+from data_loader import PARLAMENTS
 from dataset import ParlaDataset, pad_collate_fn
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
@@ -69,95 +71,128 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :seq_len, :].to(x.device)
         return self.dropout(x)
 
-parlament = 'cz'
-preprocess = True
+for parlament in PARLAMENTS:
+   for preprocess in [True, False]:
+        print(f'Using model on "{parlament}" parlament with preprocessing={preprocess}')
+      
+        ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
+        ds_valid = ParlaDataset(parlament=parlament, set='valid', preprocess=preprocess)
+        ds_test = ParlaDataset(parlament=parlament, set='test', preprocess=preprocess)
 
-ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
-ds_valid = ParlaDataset(parlament=parlament, set='valid', preprocess=preprocess)
+        shuffle = True
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        batch_size = 4  
+        lr = 1e-4
+        epoch = 10
 
-shuffle = True
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-batch_size = 8  
-lr = 1e-5
-epoch = 3
+        emb_dim = 300
+        num_layers = 2 
+        hidden_dim = 300  
+        nhead = 4
+        dropout = 0.1
+        gradient_clip = 1
 
-emb_dim = 300
-num_layers = 2 
-hidden_dim = 300  
-nhead = 4
-dropout = 0.1
-gradient_clip = 1
+        model = TransformerModel(input_size=emb_dim, hidden_dim=hidden_dim, num_layers=num_layers, nhead=nhead, dropout=dropout, device=device)
+        model = model.to(device)
 
-model = TransformerModel(input_size=emb_dim, hidden_dim=hidden_dim, num_layers=num_layers, nhead=nhead, dropout=dropout, device=device)
-model = model.to(device)
+        name = 'transformer'
+        if preprocess:
+            name = 'preprocess'+name
 
-name = 'transformer'
-if preprocess:
-    name = 'preprocess'+name
+        print(f'Model consists of {sum(p.numel() for p in model.parameters() if p.requires_grad)} parameters')
 
-print(f'Model consists of {sum(p.numel() for p in model.parameters() if p.requires_grad)} parameters')
+        trainloader = DataLoader(dataset=ds_train, batch_size=batch_size, shuffle=shuffle, collate_fn=pad_collate_fn)
+        validloader = DataLoader(dataset=ds_valid, batch_size=batch_size, shuffle=shuffle, collate_fn=pad_collate_fn)
+        testloader = DataLoader(dataset=ds_test, batch_size=batch_size, shuffle=shuffle, collate_fn=pad_collate_fn)
 
-trainloader = DataLoader(dataset=ds_train, batch_size=batch_size, shuffle=shuffle, collate_fn=pad_collate_fn)
-validloader = DataLoader(dataset=ds_valid, batch_size=batch_size, shuffle=shuffle, collate_fn=pad_collate_fn)
+        optim = torch.optim.Adam(model.parameters(), lr=lr)
+        criterion = nn.BCEWithLogitsLoss()
 
-optim = torch.optim.Adam(model.parameters(), lr=lr)
-criterion = nn.BCEWithLogitsLoss()
+        writer = SummaryWriter(log_dir=f'runs/{name}_par_{parlament}')
 
-writer = SummaryWriter(log_dir=f'runs/{name}_par_{parlament}')
+        for epo in range(epoch):
+            pbar = tqdm(trainloader)
+            for itern, (text, label) in enumerate(pbar):
+                model.train()
+                model.zero_grad()
 
-for epo in range(epoch):
-    pbar = tqdm(trainloader)
-    for itern, (text, label) in enumerate(pbar):
-        model.train()
-        model.zero_grad()
+                text = text.to(device)
+                label = label.to(device, torch.float32)
 
-        text = text.to(device)
-        label = label.to(device, torch.float32)
+                out = model(text)
+                
+                loss = criterion(out, label) 
+                loss.backward()
+                #nn.utils.clip_grad_value_(model.parameters(), gradient_clip)
+                optim.step()
+                pbar.set_description(f'Epoch {epo} Loss: {loss.item()}')
+                writer.add_scalar('Loss', loss.item(), epo*len(trainloader) + itern)
 
-        out = model(text)
-        
-        loss = criterion(out, label) 
-        loss.backward()
-        nn.utils.clip_grad_value_(model.parameters(), gradient_clip)
-        optim.step()
-        pbar.set_description(f'Epoch {epo} Loss: {loss.item()}')
-        writer.add_scalar('Loss', loss.item(), epo*len(trainloader) + itern)
+            acc = []
+            prec = []
+            rec = []
+            f1 = []
+            losses = []
+            for text, label in tqdm(validloader):
+                model.eval()
+                
+                text = text.to(device)
+                label = label.to(device, torch.float32)
 
-    acc = []
-    prec = []
-    rec = []
-    f1 = []
-    for text, label in tqdm(validloader):
-        model.eval()
-        
-        text = text.to(device)
-        label = label.to(device)
+                loss = criterion(model(text), label)
+                losses.append(loss.item())
+                y_ = model.predict(text)
 
-        y_ = model.predict(text)
+                Yt, Yp = label.cpu().detach().numpy(), y_.cpu().detach().numpy().reshape(-1, 1)
+                Yt, Yp = Yt.flatten(), Yp.flatten()
 
-        Yt, Yp = label.cpu().detach().numpy(), y_.cpu().detach().numpy().reshape(-1, 1)
-        Yt, Yp = Yt.flatten(), Yp.flatten()
+                accuracy = accuracy_score(Yt, Yp)
+                precision, recall, f1score, _ = precision_recall_fscore_support(Yt, Yp, average='binary', zero_division=1.0)
 
-        accuracy = accuracy_score(Yt, Yp)
-        precision, recall, f1score, _ = precision_recall_fscore_support(Yt, Yp, average='macro', zero_division=1.0)
+                acc.append(accuracy)
+                prec.append(precision)
+                rec.append(recall)
+                f1.append(f1score)
+            
+            writer.add_scalar('Loss avg. valid', sum(losses)/len(losses), epo*len(trainloader) + itern)
+            print(f'Avg. accuracy on validation is {sum(acc)/len(acc):.2f}')
+            print(f'Avg. precision on validation is {sum(prec)/len(prec):.2f}')
+            print(f'Avg. recall on validation is {sum(rec)/len(rec):.2f}')
+            print(f'Avg. f1 on validation is {sum(f1)/len(f1):.2f}')
 
-        acc.append(accuracy)
-        prec.append(precision)
-        rec.append(recall)
-        f1.append(f1score)
-    
-    print(f'Avg. accuracy on validation is {sum(acc)/len(acc):.2f}')
-    print(f'Avg. precision on validation is {sum(prec)/len(prec):.2f}')
-    print(f'Avg. recall on validation is {sum(rec)/len(rec):.2f}')
-    print(f'Avg. f1 on validation is {sum(f1)/len(f1):.2f}')
+        acc = []
+        prec = []
+        rec = []
+        f1 = []
+        for text, label in tqdm(testloader):
+            model.eval()
 
+            text = text.to(device)
+            label = label.to(device, torch.float32)
 
-state = {'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optim.state_dict()}
-torch.save(state, f'runs/{name}_model.pth')
+            y_ = model.predict(text)
 
+            Yt, Yp = label.cpu().detach().numpy(), y_.cpu().detach().numpy().reshape(-1, 1)
+            Yt, Yp = Yt.flatten(), Yp.flatten()
 
-with open(f'runs/{name}_par_{parlament}_results', 'w') as f:
-    f.write(f'Avg. accuracy on validation is {sum(acc)/len(acc):.2f}\n')
-    f.write(f'Avg. precision on validation is {sum(prec)/len(prec):.2f}\n')
-    f.write(f'Avg. recall on validation is {sum(rec)/len(rec):.2f}\n')
-    f.write(f'Avg. f1 on validation is {sum(f1)/len(f1):.2f}\n')
+            accuracy = accuracy_score(Yt, Yp)
+            precision, recall, f1score, _ = precision_recall_fscore_support(Yt, Yp, average='binary', zero_division=1.0)
+
+            acc.append(accuracy)
+            prec.append(precision)
+            rec.append(recall)
+            f1.append(f1score)
+
+        print(f'Avg. accuracy on test is {sum(acc)/len(acc):.2f}')
+        print(f'Avg. precision on test is {sum(prec)/len(prec):.2f}')
+        print(f'Avg. recall on test is {sum(rec)/len(rec):.2f}')
+        print(f'Avg. f1 on test is {sum(f1)/len(f1):.2f}')
+
+        state = {'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optim.state_dict()}
+        torch.save(state, f'runs/{name}_model.pth')
+
+        with open(f'runs/{name}_par_{parlament}_results', 'w') as f:
+            f.write(f'Avg. accuracy on test is {sum(acc)/len(acc):.2f}\n')
+            f.write(f'Avg. precision on test is {sum(prec)/len(prec):.2f}\n')
+            f.write(f'Avg. recall on test is {sum(rec)/len(rec):.2f}\n')
+            f.write(f'Avg. f1 on test is {sum(f1)/len(f1):.2f}\n')

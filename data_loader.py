@@ -17,8 +17,8 @@ PARLAMENTS = {
     'cz':'orientation-cz-train.tsv',
     'dk':'orientation-dk-train.tsv',
     'ee':'orientation-ee-train.tsv',
-    'es-ct':'orientation-es-ct-train.tsv',
-    'es-ga':'orientation-es-ga-train.tsv',
+    #'es-ct':'orientation-es-ct-train.tsv', #drop for speed
+    #'es-ga':'orientation-es-ga-train.tsv', #drop for speed
     'es':'orientation-es-train.tsv',
     'fi':'orientation-fr-train.tsv',
     'gb':'orientation-gb-train.tsv',
@@ -26,22 +26,22 @@ PARLAMENTS = {
     'hu':'orientation-hr-train.tsv',
     'is':'orientation-hu-train.tsv',
     'it':'orientation-it-train.tsv',
-    'iv':'orientation-iv-train.tsv',
+    'lv':'orientation-lv-train.tsv',
     'nl':'orientation-nl-train.tsv',
-    'no':'orientation-no-train.tsv',
-    'pl':'orientation-pl-train.tsv',
-    'pt':'orientation-pt-train.tsv',
-    'rs':'orientation-rs-train.tsv',
-    'se':'orientation-se-train.tsv',
-    'si':'orientation-si-train.tsv',
-    'tr':'orientation-tr-train.tsv',
-    'ua':'orientation-ua-train.tsv',
+    #'no':'orientation-no-train.tsv',
+    #'pl':'orientation-pl-train.tsv',
+    #'pt':'orientation-pt-train.tsv',
+    #'rs':'orientation-rs-train.tsv',
+    #'se':'orientation-se-train.tsv',
+    #'si':'orientation-si-train.tsv',
+    #'tr':'orientation-tr-train.tsv',
+    #'ua':'orientation-ua-train.tsv',
 }
 
 class DataLoader:
     def __init__(self, parlament='at', set='train', batch_size=1, shuffle=True, padding=False, preprocess=False):
         set = set.lower()
-        assert set in ['train', 'valid']
+        assert set in ['train', 'valid', 'test']
         self.set = set
 
 
@@ -88,9 +88,11 @@ class DataLoader:
         self.train = train
         self.indices = list(range(len(train)))
 
-        percent80 = round(len(self.indices) * 0.80)
+        percent60 = round(len(self.indices) * 0.60)
         
-        self.indices = self.indices[:percent80] if set == 'train' else self.indices[percent80:]
+        self.indices = self.indices[:percent60] if set == 'train' else self.indices[percent60:]
+        if set != 'train':
+            self.indices = self.indices[:len(self.indices)//2] if set == 'valid' else self.indices[len(self.indices)//2:]
         self.num_batches = int(np.ceil(len(self.indices) / self.batch_size))
 
         glove = GloVe()
