@@ -94,6 +94,13 @@ class RTransformer(nn.Module):
          out = 1 / (1+torch.exp(-out))
          out = torch.round(out)
       return out.flatten(1)
+   
+   def bce_predict_linear(self, x):
+      with torch.no_grad():
+         out = self.forward(x)
+         out = 1 / (1+torch.exp(-out))
+         out = torch.round(out)
+      return out.flatten(1)
 
    def predict(self, x, pos):
       out = self.forward(x, pos)

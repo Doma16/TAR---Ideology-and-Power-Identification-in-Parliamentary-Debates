@@ -55,7 +55,7 @@ for parlament in PARLAMENTS:
 
       shuffle = True
       device = 'cuda' if torch.cuda.is_available() else 'cpu'
-      batch_size = 16
+      batch_size = 8
       lr = 1e-5
       epoch = 10
 

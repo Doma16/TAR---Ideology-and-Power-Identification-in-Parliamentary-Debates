@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch.utils.tensorboard import SummaryWriter
 
 class TransformerModel(nn.Module):
-    def __init__(self, input_size=300, hidden_dim=300, num_layers=2, nhead=4, dropout=0.1, device='cpu'):
+    def __init__(self, input_size=300, hidden_dim=150, num_layers=2, nhead=2, dropout=0.1, device='cpu'):
         super(TransformerModel, self).__init__()
         self.device = device
         self.input_size = input_size
@@ -87,8 +87,8 @@ for parlament in PARLAMENTS:
 
         emb_dim = 300
         num_layers = 2 
-        hidden_dim = 300  
-        nhead = 4
+        hidden_dim = 200  
+        nhead = 2
         dropout = 0.1
         gradient_clip = 1
 
