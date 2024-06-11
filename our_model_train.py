@@ -15,7 +15,7 @@ from pos_emb import PositionalEmbedding
 from torch.utils.tensorboard import SummaryWriter
 
 for parlament in PARLAMENTS:
-   for preprocess in [True, False]:
+   for preprocess in [True]:#, False]:
       print(f'Using model on "{parlament}" parlament with preprocessing={preprocess}')
 
       ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
@@ -24,13 +24,13 @@ for parlament in PARLAMENTS:
 
       shuffle = True
       device = 'cuda' if torch.cuda.is_available() else 'cpu'
-      batch_size = 16
+      batch_size = 32
       lr = 1e-4
-      epoch = 5
+      epoch = 20
 
       emb_dim = 300
-      nhead = 2
-      num_layers = 2
+      nhead = 1
+      num_layers = 1
       k = 5
       stride = 5
 

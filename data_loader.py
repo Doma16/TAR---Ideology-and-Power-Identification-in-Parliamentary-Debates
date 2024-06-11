@@ -14,14 +14,14 @@ PARLAMENTS = {
     #'ba':'orientation-ba-train.tsv',
     #'be':'orientation-be-train.tsv',
     #'bg':'orientation-bg-train.tsv',
-    'cz':'orientation-cz-train.tsv',
-    'dk':'orientation-dk-train.tsv',
+    #'cz':'orientation-cz-train.tsv',
+    #'dk':'orientation-dk-train.tsv',
     #'ee':'orientation-ee-train.tsv',
     #'es-ct':'orientation-es-ct-train.tsv', #drop for speed
     #'es-ga':'orientation-es-ga-train.tsv', #drop for speed
-    'es':'orientation-es-train.tsv',
+    #'es':'orientation-es-train.tsv',
     #'fi':'orientation-fr-train.tsv',
-    'gb':'orientation-gb-train.tsv',
+    #'gb':'orientation-gb-train.tsv',
     'hr':'orientation-gr-train.tsv',
     #'hu':'orientation-hr-train.tsv',
     #'is':'orientation-hu-train.tsv',
@@ -87,12 +87,14 @@ class DataLoader:
 
         self.train = train
         self.indices = list(range(len(train)))
+        np.random.seed(100)
+        np.random.shuffle(self.indices)
 
         percent60 = round(len(self.indices) * 0.60)
         
-        self.indices = self.indices[:percent60] if set == 'train' else self.indices[percent60:]
-        if set != 'train':
-            self.indices = self.indices[:len(self.indices)//2] if set == 'valid' else self.indices[len(self.indices)//2:]
+        self.indices = self.indices[:percent60] if self.set == 'train' else self.indices[percent60:]
+        if self.set != 'train':
+            self.indices = self.indices[:len(self.indices)//2] if self.set == 'valid' else self.indices[len(self.indices)//2:]
         self.num_batches = int(np.ceil(len(self.indices) / self.batch_size))
 
         glove = GloVe()

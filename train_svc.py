@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
 
     for parlament in PARLAMENTS:
-       for preprocess in [True, False]:
+       for preprocess in [True]:
             print(f'Using model on "{parlament}" parlament with preprocessing={preprocess}')
             name = 'svc'
             if preprocess:

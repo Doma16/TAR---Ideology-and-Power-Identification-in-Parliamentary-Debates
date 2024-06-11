@@ -14,8 +14,16 @@ class RTransformer(nn.Module):
                device='cpu',
                **kwargs):
       super(RTransformer, self).__init__(*args, **kwargs)
+      '''
       self.encoder = TransformerEncoder(emb_dim, nhead, num_layers, k, dropout=0, device=device)
       '''
+      '''
+      self.encoder = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(d_model=emb_dim, nhead=nhead, dropout=0),
+            num_layers=num_layers
+        )
+      '''
+      # If using linear version you have to uncomment this lower "self.encoder" and change forward a bit (commented part)
       self.encoder = nn.Sequential(
          nn.Linear(in_features=k*emb_dim, out_features=emb_dim),
          nn.ReLU(),
@@ -23,7 +31,6 @@ class RTransformer(nn.Module):
          nn.ReLU(),
          nn.Linear(emb_dim, emb_dim)
       )
-      '''
       self.reset_parameters()
 
       self.emb_dim = emb_dim
@@ -58,7 +65,8 @@ class RTransformer(nn.Module):
       while l > 1:
          c = torch.zeros(size=(b, nl, emb)).to(self.device)
          for i in range(nl):
-            c[:, i, :] = self.encoder(t[:, i*s:i*s+k, :], pos).reshape(-1, emb) #.flatten(1,2))#
+            #c[:, i, :] = self.encoder(t[:, i*s:i*s+k, :]).mean(1)#, pos).reshape(-1, emb) #.flatten(1,2))#
+            c[:, i, :] = self.encoder(t[:, i*s:i*s+k, :].flatten(1,2))
          l = c.shape[1]
          nl = math.ceil(l/s)
          l_ = (nl-1) * s + k

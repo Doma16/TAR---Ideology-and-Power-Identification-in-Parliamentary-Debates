@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from torch.utils.tensorboard import SummaryWriter
 
 class TransformerModel(nn.Module):
-    def __init__(self, input_size=300, hidden_dim=150, num_layers=2, nhead=2, dropout=0.1, device='cpu'):
+    def __init__(self, input_size=300, hidden_dim=150, num_layers=2, nhead=2, dropout=0.0, device='cpu'):
         super(TransformerModel, self).__init__()
         self.device = device
         self.input_size = input_size
@@ -72,7 +72,7 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 for parlament in PARLAMENTS:
-   for preprocess in [True, False]:
+   for preprocess in [True]:#, False]:
         print(f'Using model on "{parlament}" parlament with preprocessing={preprocess}')
       
         ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
@@ -83,13 +83,13 @@ for parlament in PARLAMENTS:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         batch_size = 4  
         lr = 1e-4
-        epoch = 10
+        epoch = 20
 
         emb_dim = 300
         num_layers = 2 
         hidden_dim = 200  
         nhead = 2
-        dropout = 0.1
+        dropout = 0.0
         gradient_clip = 1
 
         model = TransformerModel(input_size=emb_dim, hidden_dim=hidden_dim, num_layers=num_layers, nhead=nhead, dropout=dropout, device=device)

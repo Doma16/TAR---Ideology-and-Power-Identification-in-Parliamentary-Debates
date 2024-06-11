@@ -46,7 +46,7 @@ class ourRNN(nn.Module):
       return out
 
 for parlament in PARLAMENTS:
-   for preprocess in [True, False]:
+   for preprocess in [True]:#, False]:
       print(f'Using model on "{parlament}" parlament with preprocessing={preprocess}')
 
       ds_train = ParlaDataset(parlament=parlament, set='train', preprocess=preprocess)
@@ -67,7 +67,7 @@ for parlament in PARLAMENTS:
       # loading model and pos embedding
       model = ourRNN(device=device, input_size=emb_dim, hidden_dim=hidden_dim, num_layers=num_layers)
       model = model.to(device)
-
+   
       name = 'ourrnn'
       if preprocess:
          name = 'preprocess'+name
